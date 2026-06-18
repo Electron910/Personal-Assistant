@@ -3,20 +3,24 @@ import ReactMarkdown from 'react-markdown';
 
 const MessageBubble = ({ role, content }) => {
   const isUser = role === 'user';
-  
+
   return (
-    <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div 
-        className={`max-w-[75%] rounded-2xl px-5 py-3 shadow-sm ${
-          isUser 
-            ? 'bg-emerald-600 text-white rounded-br-none' 
-            : 'bg-white text-slate-800 border border-gray-200 rounded-bl-none transition-colors duration-300'
+    <div
+      className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} ${
+        isUser ? 'animate-slide-in-right' : 'animate-fade-slide-in'
+      }`}
+    >
+      <div
+        className={`max-w-[80%] sm:max-w-[75%] rounded-2xl px-4 sm:px-5 py-3 shadow-sm transition-shadow hover:shadow-md ${
+          isUser
+            ? 'bg-emerald-600 text-white rounded-br-sm'
+            : 'bg-white text-slate-800 border border-gray-100 rounded-bl-sm'
         }`}
       >
         {isUser ? (
-          <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
+          <p className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base">{content}</p>
         ) : (
-          <div className="prose prose-sm max-w-none prose-emerald">
+          <div className="prose prose-sm max-w-none prose-emerald prose-p:leading-relaxed prose-p:my-1">
             <ReactMarkdown>{content}</ReactMarkdown>
           </div>
         )}
@@ -26,3 +30,4 @@ const MessageBubble = ({ role, content }) => {
 };
 
 export default MessageBubble;
+

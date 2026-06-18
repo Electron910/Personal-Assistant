@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import { getHistory, sendMessage } from '../api/chat.api';
+import { Bot, Sparkles } from 'lucide-react';
 
 const ChatWindow = ({ currentSessionId, onSessionCreated, user }) => {
   const [messages, setMessages] = useState([]);
@@ -33,7 +34,6 @@ const ChatWindow = ({ currentSessionId, onSessionCreated, user }) => {
   }, [messages]);
 
   const handleSendMessage = async (content) => {
-    // Optimistic UI update
     const newMsg = { _id: Date.now().toString(), role: 'user', content };
     setMessages(prev => [...prev, newMsg]);
     setLoading(true);
@@ -54,39 +54,87 @@ const ChatWindow = ({ currentSessionId, onSessionCreated, user }) => {
   };
 
   const handleFileUploadSuccess = async () => {
-    // Inject a message prompting the AI to summarize the new file
     await handleSendMessage("I just uploaded a new file. Please read its contents and tell me what it's about, or confirm you have access to it.");
   };
 
+  const firstName = user?.name || user?.email?.split('@')[0] || 'there';
+
   return (
-    <div className="flex flex-col h-full bg-slate-50 transition-colors duration-300">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-full bg-slate-50">
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-3">
+
+        {/* ── Animated empty/welcome state ── */}
         {messages.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-            <h2 className="text-3xl font-semibold text-slate-800">
-              Welcome back, {user?.name || user?.email?.split('@')[0]}!
-            </h2>
-            <p className="text-slate-500">What would you like to do today?</p>
-          </div>
-        )}
-        
-        {messages.filter(m => (m.role === 'user' || m.role === 'assistant') && m.content).map((msg) => (
-          <MessageBubble key={msg._id} role={msg.role} content={msg.content} />
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-white border border-gray-200 text-slate-600 rounded-2xl px-5 py-3 shadow-sm animate-pulse">
-              Typing...
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-5 px-4">
+            {/* Floating bot icon */}
+            <div
+              className="animate-scale-in w-16 h-16 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-200"
+              style={{ animation: 'scaleIn 0.5s cubic-bezier(0.22,1,0.36,1) both' }}
+            >
+              <Bot size={32} className="text-white" />
+            </div>
+
+            <div className="animate-fade-slide-up delay-100">
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
+                Hi, {firstName}! 👋
+              </h2>
+              <p className="text-slate-500 text-sm sm:text-base max-w-sm">
+                I'm your personal AI assistant. Ask me anything — I'm here to help.
+              </p>
+            </div>
+
+            {/* Suggestion chips */}
+            <div className="animate-fade-slide-up delay-200 flex flex-wrap gap-2 justify-center max-w-md">
+              {[
+                '✏️ Help me write something',
+                '🔍 Explain a concept',
+                '📁 Analyze a file',
+              ].map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => handleSendMessage(chip.slice(3))}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm text-slate-600 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-200 shadow-sm hover:shadow active:scale-95"
+                >
+                  {chip}
+                </button>
+              ))}
             </div>
           </div>
         )}
+
+        {/* Message list */}
+        {messages
+          .filter(m => (m.role === 'user' || m.role === 'assistant') && m.content)
+          .map((msg) => (
+            <MessageBubble key={msg._id} role={msg.role} content={msg.content} />
+          ))}
+
+        {/* ── Typing indicator with animated dots ── */}
+        {loading && (
+          <div className="flex justify-start animate-fade-slide-in">
+            <div className="bg-white border border-gray-100 rounded-2xl rounded-bl-sm px-5 py-4 shadow-sm flex items-center gap-1.5">
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
-      <div className="p-4 bg-slate-50 transition-colors duration-300">
-        <ChatInput onSendMessage={handleSendMessage} disabled={loading} onUploadSuccess={handleFileUploadSuccess} />
+
+      {/* Input bar */}
+      <div className="px-3 sm:px-6 py-3 sm:py-4 bg-white border-t border-gray-100">
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          disabled={loading}
+          onUploadSuccess={handleFileUploadSuccess}
+        />
       </div>
     </div>
   );
 };
 
 export default ChatWindow;
+

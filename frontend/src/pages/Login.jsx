@@ -28,18 +28,18 @@ const Login = () => {
   return (
     <div className="min-h-screen flex bg-white">
       {/* Left branding panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-emerald-500 to-green-700 flex-col items-center justify-center p-12 relative overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute top-[-80px] left-[-80px] w-64 h-64 rounded-full bg-white/10" />
-        <div className="absolute bottom-[-60px] right-[-60px] w-80 h-80 rounded-full bg-white/10" />
-        <div className="absolute top-1/2 right-[-40px] w-40 h-40 rounded-full bg-emerald-400/30" />
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-emerald-500 to-green-700 flex-col items-center justify-center p-12 relative overflow-hidden animate-fade-in">
+        {/* Decorative circles — animated */}
+        <div className="absolute top-[-80px] left-[-80px] w-64 h-64 rounded-full bg-white/10 animate-fade-in delay-200" />
+        <div className="absolute bottom-[-60px] right-[-60px] w-80 h-80 rounded-full bg-white/10 animate-fade-in delay-300" />
+        <div className="absolute top-1/2 right-[-40px] w-40 h-40 rounded-full bg-emerald-400/30 animate-fade-in delay-400" />
 
         <div className="relative z-10 text-center">
-          <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm mb-8 mx-auto border border-white/30">
+          <div className="animate-scale-in flex items-center justify-center w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm mb-8 mx-auto border border-white/30 hover:scale-110 transition-transform duration-300 cursor-default">
             <Bot size={40} className="text-white" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4">Your Personal AI</h1>
-          <p className="text-emerald-100 text-lg leading-relaxed max-w-sm">
+          <h1 className="animate-fade-slide-up delay-100 text-4xl font-bold text-white mb-4">Your Personal AI</h1>
+          <p className="animate-fade-slide-up delay-200 text-emerald-100 text-lg leading-relaxed max-w-sm">
             Ask anything, get instant answers. Your smart assistant is ready to help.
           </p>
         </div>
@@ -47,9 +47,9 @@ const Login = () => {
 
       {/* Right form panel */}
       <div className="flex-1 flex items-center justify-center py-12 px-6 sm:px-12 lg:px-16">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md animate-fade-slide-up">
           {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-10 lg:hidden">
+          <div className="flex items-center gap-3 mb-10 lg:hidden animate-scale-in">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500">
               <Bot size={20} className="text-white" />
             </div>
