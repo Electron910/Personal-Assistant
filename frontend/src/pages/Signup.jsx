@@ -1,73 +1,151 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { Mail, Lock, Bot, ArrowRight, Sparkles } from 'lucide-react';
 
 const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const { signup } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
     try {
       await signup(email, password);
       navigate('/chat');
     } catch (err) {
-      setError(err.response?.data?.message || 'Signup failed');
+      setError(err.response?.data?.message || 'Could not create account. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border border-gray-100">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Create an account</h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && <div className="text-red-500 text-sm text-center">{error}</div>}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <input
-                name="email"
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+    <div className="min-h-screen flex bg-white">
+      {/* Left form panel */}
+      <div className="flex-1 flex items-center justify-center py-12 px-6 sm:px-12 lg:px-16">
+        <div className="w-full max-w-md">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-3 mb-10 lg:hidden">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500">
+              <Bot size={20} className="text-white" />
             </div>
-            <div>
-              <input
-                name="password"
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            <span className="text-xl font-bold text-slate-900">Personal Assistant</span>
           </div>
-          <div>
+
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">Create your account</h2>
+          <p className="text-slate-500 mb-8">Free forever. Start chatting in seconds.</p>
+
+          {error && (
+            <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              <span className="mt-0.5">⚠</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all bg-slate-50 hover:bg-white"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all bg-slate-50 hover:bg-white"
+                  placeholder="Create a strong password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl text-white font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all shadow-sm hover:shadow-md"
             >
-              Sign up
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Creating account...
+                </span>
+              ) : (
+                <>
+                  Create account
+                  <ArrowRight size={16} />
+                </>
+              )}
             </button>
-          </div>
-          <div className="text-sm text-center">
-            <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
-              Already have an account? Sign in
+          </form>
+
+          <p className="mt-8 text-center text-sm text-slate-500">
+            Already have an account?{' '}
+            <Link to="/login" className="font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
+              Sign in
             </Link>
+          </p>
+        </div>
+      </div>
+
+      {/* Right branding panel */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-emerald-500 to-green-700 flex-col items-center justify-center p-12 relative overflow-hidden">
+        {/* Decorative circles */}
+        <div className="absolute top-[-80px] right-[-80px] w-64 h-64 rounded-full bg-white/10" />
+        <div className="absolute bottom-[-60px] left-[-60px] w-80 h-80 rounded-full bg-white/10" />
+        <div className="absolute top-1/2 left-[-40px] w-40 h-40 rounded-full bg-emerald-400/30" />
+
+        <div className="relative z-10 text-center">
+          <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm mb-8 mx-auto border border-white/30">
+            <Sparkles size={40} className="text-white" />
           </div>
-        </form>
+          <h1 className="text-4xl font-bold text-white mb-4">Start for free</h1>
+          <p className="text-emerald-100 text-lg leading-relaxed max-w-sm">
+            Join thousands using their personal AI to get more done, faster.
+          </p>
+          <ul className="mt-8 space-y-3 text-left">
+            {['Instant AI answers', 'Upload & analyze files', 'Full chat history'].map((f) => (
+              <li key={f} className="flex items-center gap-3 text-emerald-100">
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-white/30 text-white text-xs font-bold">✓</span>
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
 };
 
 export default Signup;
+

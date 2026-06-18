@@ -8,14 +8,6 @@ const ChatWindow = ({ currentSessionId, onSessionCreated, user }) => {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Initialize theme
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
-
   useEffect(() => {
     const fetchHistory = async () => {
       if (!currentSessionId) {
@@ -67,14 +59,14 @@ const ChatWindow = ({ currentSessionId, onSessionCreated, user }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#212121] transition-colors duration-300">
+    <div className="flex flex-col h-full bg-slate-50 transition-colors duration-300">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-            <h2 className="text-3xl font-semibold text-gray-800 dark:text-gray-100">
+            <h2 className="text-3xl font-semibold text-slate-800">
               Welcome back, {user?.name || user?.email?.split('@')[0]}!
             </h2>
-            <p className="text-gray-500 dark:text-gray-400">What would you like to do today?</p>
+            <p className="text-slate-500">What would you like to do today?</p>
           </div>
         )}
         
@@ -83,14 +75,14 @@ const ChatWindow = ({ currentSessionId, onSessionCreated, user }) => {
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-200 text-gray-800 rounded-2xl px-4 py-2 animate-pulse">
+            <div className="bg-white border border-gray-200 text-slate-600 rounded-2xl px-5 py-3 shadow-sm animate-pulse">
               Typing...
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="p-4 bg-white dark:bg-[#212121] transition-colors duration-300">
+      <div className="p-4 bg-slate-50 transition-colors duration-300">
         <ChatInput onSendMessage={handleSendMessage} disabled={loading} onUploadSuccess={handleFileUploadSuccess} />
       </div>
     </div>

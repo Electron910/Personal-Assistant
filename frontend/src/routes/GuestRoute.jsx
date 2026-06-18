@@ -7,8 +7,8 @@ const GuestRoute = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-xl text-gray-500">Loading...</div>
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-xl text-emerald-600 animate-pulse">Loading...</div>
       </div>
     );
   }
