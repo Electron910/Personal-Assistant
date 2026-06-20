@@ -11,6 +11,14 @@ const sessionSchema = new mongoose.Schema(
       type: String,
       default: 'New Chat',
     },
+    summary: {
+      type: String,
+      default: '',
+    },
+    summarizedCount: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

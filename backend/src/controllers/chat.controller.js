@@ -1,6 +1,9 @@
 import Message from '../models/Message.js';
 import Session from '../models/Session.js';
+import CoreMemory from '../models/CoreMemory.js';
 import { getModelWithTools } from '../services/llm.service.js';
+import { queryEpisodes, saveEpisode } from '../services/episodic.service.js';
+import { summarizeSession } from '../services/summary.service.js';
 import { HumanMessage, AIMessage, ToolMessage, SystemMessage } from '@langchain/core/messages';
 
 // Helper to convert DB messages to LangChain messages
@@ -119,18 +122,19 @@ const sendMessage = async (req, res, next) => {
     }
 
     let currentSessionId = sessionId;
+    let session;
     
     // Create new session if none provided
     if (!currentSessionId) {
-      const session = await Session.create({
+      session = await Session.create({
         user: userId,
         title: content.substring(0, 30) + (content.length > 30 ? '...' : ''),
       });
       currentSessionId = session._id;
     } else {
       // Check if session exists and belongs to user
-      const sessionExists = await Session.findOne({ _id: currentSessionId, user: userId });
-      if (!sessionExists) {
+      session = await Session.findOne({ _id: currentSessionId, user: userId });
+      if (!session) {
         res.status(404);
         throw new Error('Session not found');
       }
@@ -144,24 +148,63 @@ const sendMessage = async (req, res, next) => {
       content,
     });
 
-    // 2. Fetch full history for context
-    const dbMessages = await Message.find({ user: userId, session: currentSessionId }).sort('createdAt');
-    const lcMessages = convertDbToLangChainMessages(dbMessages);
+    // --- MEMORY CAPABILITIES INJECTION ---
 
-    // 3. Setup LLM with tools
-    const { modelWithTools, tools } = getModelWithTools(userId.toString());
+    // A. Fetch Core Memories (Facts)
+    const coreMemories = await CoreMemory.find({ user: userId });
+    const coreMemoryText = coreMemories.length > 0 
+      ? coreMemories.map(m => `- ${m.content}`).join('\n') 
+      : 'No explicitly saved facts yet.';
 
-    // 4. Agent loop
-    const systemPrompt = new SystemMessage(
+    // B. Fetch Episodic Memories (Semantic Search from past sessions)
+    const relevantPastEpisodes = await queryEpisodes(userId, content);
+    const episodicMemoryText = relevantPastEpisodes.length > 0
+      ? relevantPastEpisodes.join('\n\n')
+      : 'No highly relevant past conversations found.';
+
+    // C. Summarization Logic
+    let allDbMessages = await Message.find({ user: userId, session: currentSessionId }).sort('createdAt');
+    const MAX_UNSUMMARIZED_MESSAGES = 15;
+    
+    if (allDbMessages.length > MAX_UNSUMMARIZED_MESSAGES) {
+      // Summarize the older half of the messages
+      const messagesToSummarizeCount = Math.floor(allDbMessages.length / 2);
+      const messagesToSummarize = allDbMessages.slice(0, messagesToSummarizeCount);
+      const newSummary = await summarizeSession(currentSessionId, messagesToSummarize, session.summary);
+      
+      // Update session summary in memory
+      session.summary = newSummary;
+      
+      // Delete or just exclude the summarized messages from active context
+      // For simplicity here, we keep them in DB for history, but exclude them from LC messages
+      allDbMessages = allDbMessages.slice(messagesToSummarizeCount);
+    }
+
+    const lcMessages = convertDbToLangChainMessages(allDbMessages);
+
+    // D. Construct final System Prompt with Memory Injections
+    let systemPromptContent = 
       "You are an Autonomous System Agent and Personal Assistant. " +
       "If the user asks you to read, edit, or delete a file without providing its absolute path, you MUST autonomously use the `search_system_files` tool to find it first. " +
       "Once you find the absolute path, you may proceed with the requested action (read/edit/delete). " +
       "You have the `open_application` tool to launch any apps or URLs the user requests (e.g., 'Open VS Code', 'Play Spotify', 'Go to YouTube'). " +
       "CRITICAL SPEED RULE: DO NOT use `search_system_files` to find applications! If the user says 'open [app]', directly use `open_application` with the app name. Only search for actual files (like .pdf, .txt, .js). " +
       "SECURITY RULE: Before modifying or deleting files via system tools, you MUST explicitly ask for their permission, unless they clearly provided the path and asked you to perform the action. " +
-      "TRANSPARENCY RULE: In your final response to the user, ALWAYS start by briefly listing exactly what actions/tools you performed behind the scenes (e.g., 'I searched your Downloads folder and found 3 files, then I opened Spotify.')."
-    );
+      "TRANSPARENCY RULE: In your final response to the user, ALWAYS start by briefly listing exactly what actions/tools you performed behind the scenes (e.g., 'I searched your Downloads folder and found 3 files, then I opened Spotify.').\n\n";
+
+    systemPromptContent += `### CORE MEMORIES (Known Facts about the User)\n${coreMemoryText}\n\n`;
+    systemPromptContent += `### EPISODIC MEMORIES (Relevant Past Conversations)\n${episodicMemoryText}\n\n`;
     
+    if (session.summary) {
+      systemPromptContent += `### CURRENT SESSION SUMMARY (Older messages summarized)\n${session.summary}\n\n`;
+    }
+
+    const systemPrompt = new SystemMessage(systemPromptContent);
+
+    // 3. Setup LLM with tools
+    const { modelWithTools, tools } = getModelWithTools(userId.toString());
+
+    // 4. Agent loop
     let currentMessages = [systemPrompt, ...lcMessages];
     let finalAiResponse = null;
 
@@ -240,6 +283,11 @@ const sendMessage = async (req, res, next) => {
     } else if (Array.isArray(finalAiResponse.content)) {
       finalContentStr = finalAiResponse.content.filter(p => p.type === 'text').map(p => p.text).join('\n');
     }
+
+    // --- Save Episode to ChromaDB Asynchronously ---
+    saveEpisode(userId.toString(), content, finalContentStr, currentSessionId).catch(err => {
+      console.error("Error saving episode asynchronously:", err);
+    });
 
     res.json({
       role: 'assistant',
