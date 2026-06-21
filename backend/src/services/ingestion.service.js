@@ -35,7 +35,7 @@ export const ingestDocument = async (userId, filePath) => {
 
     const splitDocs = await splitter.splitDocuments(docs);
 
-    // Sanitize metadata: ChromaDB only accepts strings, numbers, and booleans.
+    
     const cleanedDocs = splitDocs.map(doc => {
       const safeMetadata = {};
       for (const [key, value] of Object.entries(doc.metadata)) {
@@ -52,12 +52,12 @@ export const ingestDocument = async (userId, filePath) => {
     const vectorStore = await getUserVectorStore(userId);
     await vectorStore.addDocuments(cleanedDocs);
 
-    // Clean up uploaded file
+    
     fs.unlinkSync(filePath);
 
     return { success: true, chunks: splitDocs.length };
   } catch (error) {
-    // Clean up on error as well
+    
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }

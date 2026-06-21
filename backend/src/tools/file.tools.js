@@ -145,7 +145,7 @@ export const getFileTools = (userId) => {
   const createSystemFileTool = tool(
     async ({ absolute_path, content }) => {
       try {
-        // Create directory recursively if it doesn't exist
+        
         const dir = path.dirname(absolute_path);
         if (!fs.existsSync(dir)) {
           fs.mkdirSync(dir, { recursive: true });
@@ -233,9 +233,9 @@ export const getFileTools = (userId) => {
     async ({ search_query, target_directory }) => {
       try {
         const homeDir = os.homedir();
-        let baseDir = homeDir; // Default to user profile for lightning-fast searches
+        let baseDir = homeDir; 
         
-        // Map common shortcuts
+        
         const lowerDir = (target_directory || '').toLowerCase();
         if (lowerDir.includes('download')) baseDir = path.join(homeDir, 'Downloads');
         else if (lowerDir.includes('desktop')) baseDir = path.join(homeDir, 'Desktop');
@@ -262,7 +262,7 @@ export const getFileTools = (userId) => {
               if (count >= maxResults) return;
               
               const file = dirent.name;
-              // Skip massive/restricted folders to prevent freezing
+              
               if (file.toLowerCase() === 'windows' || file === 'node_modules' || file === '.git' || file === 'appdata' || file.startsWith('.')) continue;
 
               const fullPath = path.join(dir, file);
@@ -277,7 +277,7 @@ export const getFileTools = (userId) => {
               }
             }
           } catch (err) {
-            // Ignore permission errors on directories
+            
           }
         };
 

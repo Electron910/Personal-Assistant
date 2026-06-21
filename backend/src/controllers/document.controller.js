@@ -1,8 +1,8 @@
 import { ingestDocument } from '../services/ingestion.service.js';
 
-// @desc    Upload and ingest a document
-// @route   POST /api/document/upload
-// @access  Private
+
+
+
 const uploadDocument = async (req, res, next) => {
   try {
     if (!req.file) {

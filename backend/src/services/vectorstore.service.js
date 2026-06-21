@@ -8,11 +8,7 @@ const getEmbeddingsModel = () => {
   });
 };
 
-/**
- * Gets a Chroma vector store instance scoped to a specific user.
- * @param {string} userId - The user ID to scope the collection.
- * @returns {Chroma} The Chroma vector store instance.
- */
+
 export const getUserVectorStore = async (userId) => {
   const collectionName = `user_${userId}`;
   

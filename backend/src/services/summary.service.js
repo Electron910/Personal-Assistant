@@ -11,14 +11,12 @@ const getSummarizationModel = () => {
   });
 };
 
-/**
- * Summarizes the old messages of a session to save context window space.
- */
+
 export const summarizeSession = async (sessionId, unsummarizedMessages, currentSummary) => {
   try {
     const llm = getSummarizationModel();
     
-    // Create a prompt for summarization
+    
     const prompt = `
 You are an AI assistant summarizer. Your goal is to progressively summarize the conversation.
 Current Summary:
@@ -33,7 +31,7 @@ Please provide a concise but comprehensive updated summary of the entire convers
     const response = await llm.invoke([new HumanMessage(prompt)]);
     const newSummary = response.content;
 
-    // Update the session with the new summary and increment the count
+    
     await Session.findByIdAndUpdate(sessionId, {
       summary: newSummary,
       $inc: { summarizedCount: unsummarizedMessages.length },
@@ -43,6 +41,6 @@ Please provide a concise but comprehensive updated summary of the entire convers
     return newSummary;
   } catch (error) {
     console.error('[Summarizer] Failed to summarize session:', error);
-    return currentSummary; // Return old summary if failed
+    return currentSummary; 
   }
 };

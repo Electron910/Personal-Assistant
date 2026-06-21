@@ -7,24 +7,24 @@ export const getSystemTools = () => {
     async ({ target, type }) => {
       try {
         let spawnArgs = [];
-        
+
         if (type === 'url') {
-          // Security: Validate URL schema
+
           const urlPattern = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/i;
           if (!urlPattern.test(target)) {
             return `Error: Security block - Invalid or unsafe URL format: '${target}'. Only valid http/https URLs are allowed.`;
           }
-          // Launch URL safely on Windows using spawn array to prevent injection and quote stripping
+
           spawnArgs = ['/c', 'start', '""', target];
         } else if (type === 'app') {
-          // Security: Avoid shell injection characters completely
+
           if (/[&|;`$()<>]/.test(target)) {
             return `Error: Security block - Target contains unsafe characters.`;
           }
 
           const cleanTarget = target.trim();
 
-          // Helper map for apps that require specific URI schemes or executable names
+
           const appMap = {
             'spotify': 'spotify:',
             'whatsapp': 'whatsapp:',
@@ -40,20 +40,20 @@ export const getSystemTools = () => {
 
           const safeApp = appMap[cleanTarget.toLowerCase()] || cleanTarget;
 
-          // Both executables and URIs launch perfectly with start "" "target" via spawn args
+
           spawnArgs = ['/c', 'start', '""', safeApp];
         } else {
           return `Error: Invalid type. Must be 'url' or 'app'.`;
         }
 
-        // Fire and forget using spawn (no windowsHide: true so apps open visibly)
+
         const child = spawn('cmd.exe', spawnArgs, {
           detached: true,
           stdio: 'ignore'
         });
-        
+
         child.unref();
-        
+
         return `Successfully opened ${type}: '${target}'`;
       } catch (error) {
         return `Error opening ${type}: ${error.message}`;

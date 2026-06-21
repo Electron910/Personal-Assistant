@@ -19,7 +19,7 @@ const messageSchema = new mongoose.Schema(
     },
     content: {
       type: String,
-      required: false, // Could be empty if it's just a tool call
+      required: false, 
     },
     tool_calls: {
       type: Array,
@@ -30,7 +30,7 @@ const messageSchema = new mongoose.Schema(
       required: false,
     },
     name: {
-      type: String, // Used for tool return names
+      type: String, 
       required: false, 
     }
   },

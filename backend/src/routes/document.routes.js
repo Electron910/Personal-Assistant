@@ -5,7 +5,7 @@ import upload from '../middleware/upload.middleware.js';
 
 const router = express.Router();
 
-router.use(protect); // Require authentication
+router.use(protect); 
 
 router.route('/upload').post(upload.single('document'), uploadDocument);
 

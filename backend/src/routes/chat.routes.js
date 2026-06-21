@@ -4,7 +4,7 @@ import { protect } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-router.use(protect); // All chat routes require authentication
+router.use(protect); 
 
 router.route('/sessions').get(getSessions).post(createSession);
 router.route('/sessions/:id').put(updateSessionTitle).delete(deleteSession);

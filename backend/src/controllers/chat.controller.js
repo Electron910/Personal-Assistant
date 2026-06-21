@@ -1,12 +1,12 @@
 import Message from '../models/Message.js';
 import Session from '../models/Session.js';
-import CoreMemory from '../models/CoreMemory.js';
 import { getModelWithTools } from '../services/llm.service.js';
 import { queryEpisodes, saveEpisode } from '../services/episodic.service.js';
 import { summarizeSession } from '../services/summary.service.js';
 import { HumanMessage, AIMessage, ToolMessage, SystemMessage } from '@langchain/core/messages';
+import { getExactCache, setExactCache, getSemanticCache, setSemanticCache, getPromptCache, setPromptCache } from '../services/cache.service.js';
+import { getShortTermMemory, getLongTermMemory } from '../services/memory.service.js';
 
-// Helper to convert DB messages to LangChain messages
 const convertDbToLangChainMessages = (dbMessages) => {
   return dbMessages.map(msg => {
     if (msg.role === 'user') return new HumanMessage(msg.content);
@@ -28,9 +28,6 @@ const convertDbToLangChainMessages = (dbMessages) => {
   });
 };
 
-// @desc    Get all chat sessions for user
-// @route   GET /api/chat/sessions
-// @access  Private
 const getSessions = async (req, res, next) => {
   try {
     const sessions = await Session.find({ user: req.user._id }).sort('-updatedAt');
@@ -40,9 +37,6 @@ const getSessions = async (req, res, next) => {
   }
 };
 
-// @desc    Create a new session
-// @route   POST /api/chat/sessions
-// @access  Private
 const createSession = async (req, res, next) => {
   try {
     const session = await Session.create({
@@ -55,9 +49,6 @@ const createSession = async (req, res, next) => {
   }
 };
 
-// @desc    Update session title
-// @route   PUT /api/chat/sessions/:id
-// @access  Private
 const updateSessionTitle = async (req, res, next) => {
   try {
     const session = await Session.findOneAndUpdate(
@@ -75,9 +66,6 @@ const updateSessionTitle = async (req, res, next) => {
   }
 };
 
-// @desc    Delete a session and its messages
-// @route   DELETE /api/chat/sessions/:id
-// @access  Private
 const deleteSession = async (req, res, next) => {
   try {
     const session = await Session.findOneAndDelete({ _id: req.params.id, user: req.user._id });
@@ -92,9 +80,6 @@ const deleteSession = async (req, res, next) => {
   }
 };
 
-// @desc    Get chat history for a session
-// @route   GET /api/chat/history?sessionId=...
-// @access  Private
 const getChatHistory = async (req, res, next) => {
   try {
     const { sessionId } = req.query;
@@ -108,9 +93,6 @@ const getChatHistory = async (req, res, next) => {
   }
 };
 
-// @desc    Send a message to the agent
-// @route   POST /api/chat/message
-// @access  Private
 const sendMessage = async (req, res, next) => {
   try {
     const { content, sessionId } = req.body;
@@ -123,8 +105,7 @@ const sendMessage = async (req, res, next) => {
 
     let currentSessionId = sessionId;
     let session;
-    
-    // Create new session if none provided
+
     if (!currentSessionId) {
       session = await Session.create({
         user: userId,
@@ -132,7 +113,6 @@ const sendMessage = async (req, res, next) => {
       });
       currentSessionId = session._id;
     } else {
-      // Check if session exists and belongs to user
       session = await Session.findOne({ _id: currentSessionId, user: userId });
       if (!session) {
         res.status(404);
@@ -140,78 +120,81 @@ const sendMessage = async (req, res, next) => {
       }
     }
 
-    // 1. Save user message to DB
+    const exactCacheRes = await getExactCache(content);
+    if (exactCacheRes) {
+      await Message.create({ user: userId, session: currentSessionId, role: 'user', content });
+      await Message.create({ user: userId, session: currentSessionId, role: 'assistant', content: exactCacheRes });
+      return res.json({ role: 'assistant', content: exactCacheRes, sessionId: currentSessionId });
+    }
+
+    const semanticCacheRes = await getSemanticCache(content);
+    if (semanticCacheRes) {
+      await Message.create({ user: userId, session: currentSessionId, role: 'user', content });
+      await Message.create({ user: userId, session: currentSessionId, role: 'assistant', content: semanticCacheRes });
+      return res.json({ role: 'assistant', content: semanticCacheRes, sessionId: currentSessionId });
+    }
+
     const userDbMsg = await Message.create({
       user: userId,
       session: currentSessionId,
       role: 'user',
-      content,
+      content
     });
 
-    // --- MEMORY CAPABILITIES INJECTION ---
-
-    // A. Fetch Core Memories (Facts)
-    const coreMemories = await CoreMemory.find({ user: userId });
-    const coreMemoryText = coreMemories.length > 0 
-      ? coreMemories.map(m => `- ${m.content}`).join('\n') 
+    const longTermMemories = await getLongTermMemory(userId);
+    const coreMemoryText = longTermMemories.length > 0
+      ? longTermMemories.map(m => `- ${m}`).join('\n')
       : 'No explicitly saved facts yet.';
 
-    // B. Fetch Episodic Memories (Semantic Search from past sessions)
     const relevantPastEpisodes = await queryEpisodes(userId, content);
     const episodicMemoryText = relevantPastEpisodes.length > 0
       ? relevantPastEpisodes.join('\n\n')
       : 'No highly relevant past conversations found.';
 
-    // C. Summarization Logic
-    let allDbMessages = await Message.find({ user: userId, session: currentSessionId }).sort('createdAt');
+    let allDbMessages = await getShortTermMemory(currentSessionId, userId, 30);
     const MAX_UNSUMMARIZED_MESSAGES = 15;
-    
+
     if (allDbMessages.length > MAX_UNSUMMARIZED_MESSAGES) {
-      // Summarize the older half of the messages
       const messagesToSummarizeCount = Math.floor(allDbMessages.length / 2);
       const messagesToSummarize = allDbMessages.slice(0, messagesToSummarizeCount);
       const newSummary = await summarizeSession(currentSessionId, messagesToSummarize, session.summary);
-      
-      // Update session summary in memory
       session.summary = newSummary;
-      
-      // Delete or just exclude the summarized messages from active context
-      // For simplicity here, we keep them in DB for history, but exclude them from LC messages
+      await session.save();
       allDbMessages = allDbMessages.slice(messagesToSummarizeCount);
     }
 
     const lcMessages = convertDbToLangChainMessages(allDbMessages);
 
-    // D. Construct final System Prompt with Memory Injections
-    let systemPromptContent = 
+    let systemPromptContent =
       "You are an Autonomous System Agent and Personal Assistant. " +
+      "TOOL USAGE RULE: You MUST answer the user's question using your own internal knowledge first. NEVER use the `open_application` tool to perform a web search for the user unless they explicitly ask you to open a browser or search the web. ONLY use tools if your internal knowledge is completely insufficient or if the user explicitly commands you to perform a system action (like opening an app, fetching data, or editing a file).\n" +
       "If the user asks you to read, edit, or delete a file without providing its absolute path, you MUST autonomously use the `search_system_files` tool to find it first. " +
       "Once you find the absolute path, you may proceed with the requested action (read/edit/delete). " +
       "You have the `open_application` tool to launch any apps or URLs the user requests (e.g., 'Open VS Code', 'Play Spotify', 'Go to YouTube'). " +
       "CRITICAL SPEED RULE: DO NOT use `search_system_files` to find applications! If the user says 'open [app]', directly use `open_application` with the app name. Only search for actual files (like .pdf, .txt, .js). " +
-      "SECURITY RULE: Before modifying or deleting files via system tools, you MUST explicitly ask for their permission, unless they clearly provided the path and asked you to perform the action. " +
       "TRANSPARENCY RULE: In your final response to the user, ALWAYS start by briefly listing exactly what actions/tools you performed behind the scenes (e.g., 'I searched your Downloads folder and found 3 files, then I opened Spotify.').\n\n";
 
-    systemPromptContent += `### CORE MEMORIES (Known Facts about the User)\n${coreMemoryText}\n\n`;
-    systemPromptContent += `### EPISODIC MEMORIES (Relevant Past Conversations)\n${episodicMemoryText}\n\n`;
-    
+    systemPromptContent += `### CORE MEMORIES\n${coreMemoryText}\n\n`;
+    systemPromptContent += `### EPISODIC MEMORIES\n${episodicMemoryText}\n\n`;
+
     if (session.summary) {
-      systemPromptContent += `### CURRENT SESSION SUMMARY (Older messages summarized)\n${session.summary}\n\n`;
+      systemPromptContent += `### CURRENT SESSION SUMMARY\n${session.summary}\n\n`;
     }
 
     const systemPrompt = new SystemMessage(systemPromptContent);
 
-    // 3. Setup LLM with tools
+    const promptCacheRes = await getPromptCache(systemPromptContent + content);
+    if (promptCacheRes) {
+      await Message.create({ user: userId, session: currentSessionId, role: 'assistant', content: promptCacheRes });
+      return res.json({ role: 'assistant', content: promptCacheRes, sessionId: currentSessionId });
+    }
+
     const { modelWithTools, tools } = getModelWithTools(userId.toString());
 
-    // 4. Agent loop
     let currentMessages = [systemPrompt, ...lcMessages];
     let finalAiResponse = null;
 
-    console.log(`\n[Agent Logger] 🤖 Starting new task for session: ${currentSessionId}`);
-
     while (true) {
-      console.log(`[Agent Logger] ⏳ Model is thinking...`);
       const response = await modelWithTools.invoke(currentMessages);
       currentMessages.push(response);
 
@@ -222,31 +205,23 @@ const sendMessage = async (req, res, next) => {
         contentStr = response.content.filter(p => p.type === 'text').map(p => p.text).join('\n');
       }
 
-      // Save AI message to DB
       const aiDbMsg = await Message.create({
         user: userId,
         session: currentSessionId,
         role: 'assistant',
         content: contentStr,
-        tool_calls: response.tool_calls || [],
+        tool_calls: response.tool_calls || []
       });
 
       if (response.tool_calls && response.tool_calls.length > 0) {
-        console.log(`[Agent Logger] 🛠️ Model requested ${response.tool_calls.length} tool call(s)`);
-        // Execute tools
         for (const toolCall of response.tool_calls) {
           const selectedTool = tools.find(t => t.name === toolCall.name);
           if (selectedTool) {
-            console.log(`[Agent Logger] ▶️ Executing tool: ${toolCall.name}`);
-            console.log(`[Agent Logger] 📥 Arguments:`, toolCall.args);
-            
             let toolResult;
             try {
               toolResult = await selectedTool.invoke(toolCall.args);
-              console.log(`[Agent Logger] ✅ Tool ${toolCall.name} succeeded.`);
             } catch (err) {
-              toolResult = `Error executing tool: ${err.message}`;
-              console.log(`[Agent Logger] ❌ Tool ${toolCall.name} failed:`, err.message);
+              toolResult = `Error: ${err.message}`;
             }
 
             const toolMsg = new ToolMessage({
@@ -257,21 +232,17 @@ const sendMessage = async (req, res, next) => {
 
             currentMessages.push(toolMsg);
 
-            // Save Tool message to DB
             await Message.create({
               user: userId,
               session: currentSessionId,
               role: 'tool',
               content: toolMsg.content,
               tool_call_id: toolMsg.tool_call_id,
-              name: toolMsg.name,
+              name: toolMsg.name
             });
           }
         }
-        // Continue loop to send tool results back to LLM
       } else {
-        // No more tool calls, we have our final response
-        console.log(`[Agent Logger] 🏁 Task completed. Final response generated.`);
         finalAiResponse = response;
         break;
       }
@@ -284,9 +255,12 @@ const sendMessage = async (req, res, next) => {
       finalContentStr = finalAiResponse.content.filter(p => p.type === 'text').map(p => p.text).join('\n');
     }
 
-    // --- Save Episode to ChromaDB Asynchronously ---
+    await setExactCache(content, finalContentStr);
+    await setSemanticCache(content, finalContentStr);
+    await setPromptCache(systemPromptContent + content, finalContentStr);
+
     saveEpisode(userId.toString(), content, finalContentStr, currentSessionId).catch(err => {
-      console.error("Error saving episode asynchronously:", err);
+      console.error(err);
     });
 
     res.json({

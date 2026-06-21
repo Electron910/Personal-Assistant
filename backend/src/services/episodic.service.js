@@ -8,9 +8,6 @@ const getEmbeddingsModel = () => {
   });
 };
 
-/**
- * Gets a Chroma vector store instance for episodic memory scoped to a specific user.
- */
 export const getEpisodicVectorStore = async (userId) => {
   const collectionName = `user_${userId}_episodes`;
   
@@ -22,9 +19,6 @@ export const getEpisodicVectorStore = async (userId) => {
   return vectorStore;
 };
 
-/**
- * Saves a conversational turn (User message + Assistant reply) to episodic memory.
- */
 export const saveEpisode = async (userId, userMessage, assistantReply, sessionId) => {
   try {
     const vectorStore = await getEpisodicVectorStore(userId);
@@ -41,20 +35,16 @@ export const saveEpisode = async (userId, userMessage, assistantReply, sessionId
       }
     ]);
   } catch (error) {
-    console.error('[Episodic Memory] Failed to save episode:', error);
+    console.error(error);
   }
 };
 
-/**
- * Queries the episodic memory for past conversations relevant to the current query.
- */
 export const queryEpisodes = async (userId, query, k = 3) => {
   try {
     const vectorStore = await getEpisodicVectorStore(userId);
     const results = await vectorStore.similaritySearch(query, k);
     return results.map(r => r.pageContent);
   } catch (error) {
-    console.error('[Episodic Memory] Failed to query episodes:', error);
     return [];
   }
 };

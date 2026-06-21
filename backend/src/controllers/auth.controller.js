@@ -1,9 +1,9 @@
 import User from '../models/User.js';
 import generateToken from '../utils/jwt.util.js';
 
-// @desc    Auth user & get token
-// @route   POST /api/auth/login
-// @access  Public
+
+
+
 const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -25,9 +25,9 @@ const loginUser = async (req, res, next) => {
   }
 };
 
-// @desc    Register a new user
-// @route   POST /api/auth/signup
-// @access  Public
+
+
+
 const registerUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -41,7 +41,7 @@ const registerUser = async (req, res, next) => {
 
     const user = await User.create({
       email,
-      passwordHash: password, // The pre-save hook handles hashing
+      passwordHash: password, 
     });
 
     if (user) {
@@ -59,9 +59,9 @@ const registerUser = async (req, res, next) => {
   }
 };
 
-// @desc    Logout user / clear cookie
-// @route   POST /api/auth/logout
-// @access  Public
+
+
+
 const logoutUser = (req, res) => {
   res.cookie('jwt', '', {
     httpOnly: true,
@@ -70,9 +70,9 @@ const logoutUser = (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 };
 
-// @desc    Get user profile
-// @route   GET /api/auth/profile
-// @access  Private
+
+
+
 const getUserProfile = async (req, res, next) => {
   try {
     const user = {
