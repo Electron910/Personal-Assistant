@@ -2,13 +2,29 @@ import { createClient } from 'redis';
 import { Chroma } from '@langchain/community/vectorstores/chroma';
 import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
 
+let isRedisConnected = false;
+
 const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
+  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  disableOfflineQueue: true,
+  socket: {
+    reconnectStrategy: false
+  }
 });
 
-redisClient.on('error', (err) => console.log('Redis Client Error', err));
+redisClient.on('error', (err) => {
+  console.error('Redis Client Error', err);
+  isRedisConnected = false;
+});
 
-redisClient.connect().catch(console.error);
+redisClient.on('connect', () => {
+  isRedisConnected = true;
+});
+
+redisClient.connect().catch((err) => {
+  console.error('Failed to connect to Redis. Caching will be bypassed.');
+  isRedisConnected = false;
+});
 
 const getEmbeddingsModel = () => {
   return new GoogleGenerativeAIEmbeddings({
@@ -25,6 +41,7 @@ const getSemanticVectorStore = async () => {
 };
 
 export const getExactCache = async (key) => {
+  if (!isRedisConnected) return null;
   try {
     const value = await redisClient.get(`exact:${key}`);
     return value ? JSON.parse(value) : null;
@@ -34,6 +51,7 @@ export const getExactCache = async (key) => {
 };
 
 export const setExactCache = async (key, value, expirationInSeconds = 3600) => {
+  if (!isRedisConnected) return;
   try {
     await redisClient.setEx(`exact:${key}`, expirationInSeconds, JSON.stringify(value));
   } catch (error) {
@@ -41,6 +59,7 @@ export const setExactCache = async (key, value, expirationInSeconds = 3600) => {
 };
 
 export const getPromptCache = async (prompt) => {
+  if (!isRedisConnected) return null;
   try {
     const value = await redisClient.get(`prompt:${prompt}`);
     return value ? JSON.parse(value) : null;
@@ -50,6 +69,7 @@ export const getPromptCache = async (prompt) => {
 };
 
 export const setPromptCache = async (prompt, value, expirationInSeconds = 3600) => {
+  if (!isRedisConnected) return;
   try {
     await redisClient.setEx(`prompt:${prompt}`, expirationInSeconds, JSON.stringify(value));
   } catch (error) {
@@ -57,6 +77,7 @@ export const setPromptCache = async (prompt, value, expirationInSeconds = 3600) 
 };
 
 export const getRetrievalCache = async (query) => {
+  if (!isRedisConnected) return null;
   try {
     const value = await redisClient.get(`retrieval:${query}`);
     return value ? JSON.parse(value) : null;
@@ -66,6 +87,7 @@ export const getRetrievalCache = async (query) => {
 };
 
 export const setRetrievalCache = async (query, value, expirationInSeconds = 3600) => {
+  if (!isRedisConnected) return;
   try {
     await redisClient.setEx(`retrieval:${query}`, expirationInSeconds, JSON.stringify(value));
   } catch (error) {
